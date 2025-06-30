@@ -1,0 +1,114 @@
+version: '3.8'
+
+services:
+  # MongoDB Database
+  mongodb:
+    image: mongo:7-jammy
+    container_name: twitter-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: twitter_user
+      MONGO_INITDB_ROOT_PASSWORD: twitter_password_secure_2024
+      MONGO_INITDB_DATABASE: Twitter
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - ./docker/mongodb/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
+    networks:
+      - twitter-network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/Twitter --quiet
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: twitter-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - twitter-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Twitter API Application
+  twitter-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: twitter-api
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      HOST: 0.0.0.0
+      # MongoDB connection (using service name)
+      DB_USERNAME: twitter_user
+      DB_PASSWORD: twitter_password_secure_2024
+      DB_NAME: Twitter
+      DB_HOST: mongodb
+      DB_PORT: 27017
+      # Collections
+      DB_USERS_COLLECTION: users
+      DB_REFRESH_TOKENS_COLLECTION: refresh_tokens
+      DB_FOLLOWERS_COLLECTION: followers
+      DB_VIDEO_STATUS_COLLECTION: video_status
+      DB_TWEETS_COLLECTION: tweets
+      DB_HASHTAGS_COLLECTION: hashtags
+      DB_BOOKMARKS_COLLECTION: bookmarks
+      DB_LIKES_COLLECTION: likes
+      DB_CONVERSATIONS_COLLECTION: conversations
+      # JWT Secrets
+      JWT_SECRET_ACCESS_TOKEN: twitter_access_token_secret_key_2024_docker
+      JWT_SECRET_REFRESH_TOKEN: twitter_refresh_token_secret_key_2024_docker
+      JWT_SECRET_EMAIL_VERIFY_TOKEN: twitter_email_verify_token_secret_key_2024_docker
+      JWT_SECRET_FORGOT_PASSWORD_TOKEN: twitter_forgot_password_token_secret_key_2024_docker
+      # JWT Expiration
+      ACCESS_TOKEN_EXPIRES_IN: 15m
+      REFRESH_TOKEN_EXPIRES_IN: 100d
+      EMAIL_VERIFY_TOKEN_EXPIRES_IN: 7d
+      FORGOT_PASSWORD_TOKEN_EXPIRES_IN: 7d
+      # Password
+      PASSWORD_SECRET: twitter_password_secret_2024_docker
+      # Redis connection
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+    networks:
+      - twitter-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:4000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  mongodb_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  twitter-network:
+    driver: bridge

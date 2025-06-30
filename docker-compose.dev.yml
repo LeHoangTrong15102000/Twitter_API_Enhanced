@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  # MongoDB for Development
+  mongodb:
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: twitter_dev_user
+      MONGO_INITDB_ROOT_PASSWORD: twitter_dev_password_2024
+      MONGO_INITDB_DATABASE: Twitter-dev
+
+  # Twitter API in Development Mode
+  twitter-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: twitter-api-dev
+    environment:
+      NODE_ENV: development
+      PORT: 4000
+      HOST: 0.0.0.0
+      # MongoDB connection for development
+      DB_USERNAME: twitter_dev_user
+      DB_PASSWORD: twitter_dev_password_2024
+      DB_NAME: Twitter-dev
+      DB_HOST: mongodb
+      DB_PORT: 27017
+      # Collections
+      DB_USERS_COLLECTION: users
+      DB_REFRESH_TOKENS_COLLECTION: refresh_tokens
+      DB_FOLLOWERS_COLLECTION: followers
+      DB_VIDEO_STATUS_COLLECTION: video_status
+      DB_TWEETS_COLLECTION: tweets
+      DB_HASHTAGS_COLLECTION: hashtags
+      DB_BOOKMARKS_COLLECTION: bookmarks
+      DB_LIKES_COLLECTION: likes
+      DB_CONVERSATIONS_COLLECTION: conversations
+      # JWT Secrets for development
+      JWT_SECRET_ACCESS_TOKEN: twitter_access_token_secret_key_dev_2024
+      JWT_SECRET_REFRESH_TOKEN: twitter_refresh_token_secret_key_dev_2024
+      JWT_SECRET_EMAIL_VERIFY_TOKEN: twitter_email_verify_token_secret_key_dev_2024
+      JWT_SECRET_FORGOT_PASSWORD_TOKEN: twitter_forgot_password_token_secret_key_dev_2024
+      # JWT Expiration
+      ACCESS_TOKEN_EXPIRES_IN: 15m
+      REFRESH_TOKEN_EXPIRES_IN: 100d
+      EMAIL_VERIFY_TOKEN_EXPIRES_IN: 7d
+      FORGOT_PASSWORD_TOKEN_EXPIRES_IN: 7d
+      # Password
+      PASSWORD_SECRET: twitter_password_secret_dev_2024
+      # Redis connection
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      # Development specific
+      DEBUG: twitter:*
+    volumes:
+      # Mount source code for hot reload
+      - ./src:/app/src:ro
+      - ./openapi:/app/openapi:ro
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+      # Mount config files
+      - ./package.json:/app/package.json:ro
+      - ./pnpm-lock.yaml:/app/pnpm-lock.yaml:ro
+      - ./tsconfig.json:/app/tsconfig.json:ro
+      - ./nodemon.json:/app/nodemon.json:ro
+      - ./.env.development:/app/.env.development:ro
+    command: ["pnpm", "run", "dev"] 
